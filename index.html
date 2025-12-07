@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+<meta charset="UTF-8">
+<title>إدارة المشتركين</title>
+<style>
+body { font-family: Arial, sans-serif; margin: 20px; background-color:#f0f4f8; }
+h2 { color: #0077cc; }
+input, button { margin: 5px; padding: 5px; }
+input { width: 150px; }
+button { cursor: pointer; }
+.delayed { color: red; font-weight: bold; }
+.paid { color: green; font-weight: bold; }
+li { margin: 8px 0; }
+#subsList button { margin-left: 10px; }
+</style>
+</head>
+<body>
+<h2>إضافة مشترك</h2>
+<input id="name" placeholder="الاسم">
+<input id="phone" placeholder="رقم الهاتف">
+<input id="price" type="number" placeholder="السعر">
+<button onclick="addSubscriber()">إضافة</button>
+
+<h2>المشتركين</h2>
+<ul id="subsList"></ul>
+
+<script>
+let subs = JSON.parse(localStorage.getItem('subs') || '[]');
+
+function addSubscriber() {
+  const name = document.getElementById('name').value.trim();
+  const phone = document.getElementById('phone').value.trim();
+  const price = parseInt(document.getElementById('price').value);
+  if (!name || !phone || isNaN(price)) { alert("أدخل كل البيانات!"); return; }
+  
+  const sub = {name, phone, price, lastPay: null, paid: false};
+  subs.push(sub);
+  localStorage.setItem('subs', JSON.stringify(subs));
+  renderSubs();
+  document.getElementById('name').value = '';
+  document.getElementById('phone').value = '';
+  document.getElementById('price').value = '';
+}
+
+function renderSubs() {
+  const list = document.getElementById('subsList');
+  list.innerHTML = '';
+  subs.forEach((s, i) => {
+    let status = s.paid ? 'تم الدفع' : 'لم يدفع';
+    let statusClass = s.paid ? 'paid' : 'delayed';
+    let lastPayDate = s.lastPay ? new Date(s.lastPay).toLocaleDateString('ar-EG') : '---';
+    
+    const li = document.createElement('li');
+    li.innerHTML = `${s.name} - ${s.phone} - ${s.price} - 
+      <span class="${statusClass}">${status}</span> - تاريخ الدفع: ${lastPayDate}
+      <button onclick="markPaid(${i})">تم الدفع</button>
+      <button onclick="deleteSub(${i})">حذف</button>`;
+    list.appendChild(li);
+  });
+}
+
+function markPaid(index){
+  subs[index].lastPay = Date.now();
+  subs[index].paid = true;
+  localStorage.setItem('subs', JSON.stringify(subs));
+  renderSubs();
+}
+
+function deleteSub(index){
+  if(confirm('هل أنت متأكد من حذف المشترك؟')){
+    subs.splice(index, 1);
+    localStorage.setItem('subs', JSON.stringify(subs));
+    renderSubs();
+  }
+}
+
+renderSubs();
+</script>
+</body>
+</html>
