@@ -152,26 +152,14 @@ function addSubscriber() {
   newRef.set(sub);
 
   clearInputs();
-  fetchSubs();
 }
 
+// مسح الحقول بعد الإضافة
 function clearInputs() {
   document.getElementById('name').value = '';
   document.getElementById('phone').value = '';
   document.getElementById('price').value = '';
   document.getElementById('address').value = '';
-}
-
-function fetchSubs() {
-  db.ref('subscribers').once('value', snapshot => {
-    subs = [];
-    snapshot.forEach(child => {
-      const sub = child.val();
-      sub.id = child.key;
-      subs.push(sub);
-    });
-    renderSubs();
-  });
 }
 
 // البحث حسب الاسم
@@ -180,11 +168,23 @@ function searchSubs() {
   renderSubs(query);
 }
 
+// **استمع للتغيرات في الوقت الحقيقي**
+db.ref('subscribers').on('value', snapshot => {
+  subs = [];
+  snapshot.forEach(child => {
+    const sub = child.val();
+    sub.id = child.key;
+    subs.push(sub);
+  });
+  renderSubs();
+});
+
+// عرض المشتركين
 function renderSubs(filter = "") {
   const list = document.getElementById('subsList');
   list.innerHTML = '';
 
-  // تحديث حالة الدفع
+  // تحديث حالة الدفع لكل مشترك (متأخر بعد 30 يوم)
   subs.forEach(s => {
     if (s.lastPay) {
       const diffDays = (Date.now() - s.lastPay)/(1000*60*60*24);
@@ -192,7 +192,6 @@ function renderSubs(filter = "") {
     } else { s.paid = false; }
   });
 
-  // ترتيب: المتأخرون أولًا
   const sortedSubs = subs.slice().sort((a,b) => b.paid - a.paid);
   const filteredSubs = sortedSubs.filter(s => s.name.toLowerCase().includes(filter));
 
@@ -210,13 +209,12 @@ function renderSubs(filter = "") {
   });
 }
 
-// تحديث الدفع
+// تحديث حالة الدفع
 function markPaid(index){
   const sub = subs[index];
   sub.lastPay = Date.now();
   sub.paid = true;
   db.ref('subscribers/' + sub.id).update({ lastPay: sub.lastPay, paid: true });
-  fetchSubs();
 }
 
 // حذف مشترك
@@ -224,7 +222,6 @@ function deleteSub(index){
   const sub = subs[index];
   if(confirm('هل أنت متأكد من حذف المشترك؟')){
     db.ref('subscribers/' + sub.id).remove();
-    fetchSubs();
   }
 }
 
@@ -256,9 +253,6 @@ function exportToExcel() {
   link.click();
   document.body.removeChild(link);
 }
-
-// جلب المشتركين عند تحميل الصفحة
-fetchSubs();
 </script>
 </body>
 </html>
