@@ -4,7 +4,6 @@
 <meta charset="UTF-8">
 <title>إدارة المشتركين</title>
 <style>
-/* خطوط وخلفية */
 @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap');
 
 body {
@@ -18,7 +17,6 @@ body {
     align-items: center;
 }
 
-/* الحاوية الرئيسية */
 .container {
     background: white;
     padding: 30px 40px;
@@ -29,7 +27,6 @@ body {
     max-width: 900px;
 }
 
-/* العناوين */
 h2 {
     color: #4a00e0;
     text-align: center;
@@ -37,7 +34,6 @@ h2 {
     text-shadow: 1px 1px 3px rgba(0,0,0,0.1);
 }
 
-/* الحقول */
 input {
     width: calc(50% - 12px);
     padding: 12px;
@@ -53,7 +49,6 @@ input:focus {
     outline: none;
 }
 
-/* الأزرار */
 button {
     background: linear-gradient(45deg, #4a00e0, #8e2de2);
     color: white;
@@ -72,11 +67,9 @@ button:hover {
     box-shadow: 0 8px 20px rgba(0,0,0,0.2);
 }
 
-/* حالة الدفع */
 .delayed { color: #e63946; font-weight: bold; }
 .paid { color: #2a9d8f; font-weight: bold; }
 
-/* قائمة المشتركين */
 ul { list-style: none; padding: 0; }
 li {
     background: #f7f7f7;
@@ -95,17 +88,11 @@ li:hover {
     transform: translateY(-2px);
 }
 
-/* عناصر داخل القائمة */
 li span { margin-left: 10px; font-weight: bold; }
 #subsList button { margin: 0 5px; padding: 6px 10px; font-size: 0.9em; }
 
-/* بحث */
-#search {
-    width: 100%;
-    margin: 10px 0 20px 0;
-}
+#search { width: 100%; margin: 10px 0 20px 0; }
 
-/* Responsive */
 @media (max-width: 600px) {
     input { width: 100%; }
     li { flex-direction: column; align-items: flex-start; }
@@ -129,8 +116,24 @@ li span { margin-left: 10px; font-weight: bold; }
 <button onclick="exportToExcel()">تصدير إلى Excel</button>
 </div>
 
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
 <script>
-let subs = JSON.parse(localStorage.getItem('subs') || '[]');
+const firebaseConfig = {
+  apiKey: "AIzaSyDLQKdBN8lTmbu78gVhOeLWwdGyXYl6QdU",
+  authDomain: "subscribers-87829.firebaseapp.com",
+  projectId: "subscribers-87829",
+  storageBucket: "subscribers-87829.firebasestorage.app",
+  messagingSenderId: "81979628876",
+  appId: "1:81979628876:web:c1c521977ec8b1493643e9",
+  measurementId: "G-G4FB2Z9VQ8"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+let subs = [];
 
 // إضافة مشترك جديد
 function addSubscriber() {
@@ -145,19 +148,30 @@ function addSubscriber() {
   }
   
   const sub = {name, phone, price, address, lastPay: null, paid: false};
-  subs.push(sub);
-  localStorage.setItem('subs', JSON.stringify(subs));
-  
+  const newRef = db.ref('subscribers').push();
+  newRef.set(sub);
+
   clearInputs();
-  renderSubs();
+  fetchSubs();
 }
 
-// مسح الحقول بعد الإضافة
 function clearInputs() {
   document.getElementById('name').value = '';
   document.getElementById('phone').value = '';
   document.getElementById('price').value = '';
   document.getElementById('address').value = '';
+}
+
+function fetchSubs() {
+  db.ref('subscribers').once('value', snapshot => {
+    subs = [];
+    snapshot.forEach(child => {
+      const sub = child.val();
+      sub.id = child.key;
+      subs.push(sub);
+    });
+    renderSubs();
+  });
 }
 
 // البحث حسب الاسم
@@ -166,27 +180,20 @@ function searchSubs() {
   renderSubs(query);
 }
 
-// عرض المشتركين
 function renderSubs(filter = "") {
   const list = document.getElementById('subsList');
   list.innerHTML = '';
 
-  // تحديث حالة الدفع لكل مشترك (متأخر بعد 30 يوم)
+  // تحديث حالة الدفع
   subs.forEach(s => {
     if (s.lastPay) {
       const diffDays = (Date.now() - s.lastPay)/(1000*60*60*24);
-      if (diffDays > 30) {
-        s.paid = false; // متأخر
-      }
-    } else {
-      s.paid = false; // لم يدفع بعد
-    }
+      if (diffDays > 30) { s.paid = false; }
+    } else { s.paid = false; }
   });
 
-  // ترتيب المشتركين: المتأخرون أولًا
+  // ترتيب: المتأخرون أولًا
   const sortedSubs = subs.slice().sort((a,b) => b.paid - a.paid);
-
-  // تصفية حسب الاسم
   const filteredSubs = sortedSubs.filter(s => s.name.toLowerCase().includes(filter));
 
   filteredSubs.forEach((s, i) => {
@@ -201,29 +208,27 @@ function renderSubs(filter = "") {
       <button onclick="deleteSub(${i})">حذف</button>`;
     list.appendChild(li);
   });
-
-  // تحديث التخزين
-  localStorage.setItem('subs', JSON.stringify(subs));
 }
 
-// تحديث حالة الدفع
+// تحديث الدفع
 function markPaid(index){
-  subs[index].lastPay = Date.now();
-  subs[index].paid = true;
-  localStorage.setItem('subs', JSON.stringify(subs));
-  renderSubs();
+  const sub = subs[index];
+  sub.lastPay = Date.now();
+  sub.paid = true;
+  db.ref('subscribers/' + sub.id).update({ lastPay: sub.lastPay, paid: true });
+  fetchSubs();
 }
 
 // حذف مشترك
 function deleteSub(index){
+  const sub = subs[index];
   if(confirm('هل أنت متأكد من حذف المشترك؟')){
-    subs.splice(index, 1);
-    localStorage.setItem('subs', JSON.stringify(subs));
-    renderSubs();
+    db.ref('subscribers/' + sub.id).remove();
+    fetchSubs();
   }
 }
 
-// تصدير البيانات إلى Excel (CSV) مع دعم العربية
+// تصدير البيانات إلى Excel
 function exportToExcel() {
   if (subs.length === 0) {
     alert("لا توجد بيانات لتصديرها!");
@@ -240,7 +245,6 @@ function exportToExcel() {
     s.lastPay ? new Date(s.lastPay).toLocaleDateString('ar-EG') : "---"
   ]);
 
-  // إضافة BOM لجعل Excel يقرأ العربية بشكل صحيح
   const BOM = "\uFEFF";
   let csvContent = BOM + headers.join(",") + "\n" + rows.map(e => e.join(",")).join("\n");
 
@@ -253,9 +257,8 @@ function exportToExcel() {
   document.body.removeChild(link);
 }
 
-// عرض المشتركين عند تحميل الصفحة
-renderSubs();
-</script> 
-
+// جلب المشتركين عند تحميل الصفحة
+fetchSubs();
+</script>
 </body>
 </html>
